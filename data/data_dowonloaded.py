@@ -10,7 +10,7 @@ import cdsapi
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 ENV_PATH = BASE_DIR / ".env"
-load_dotenv(ENV_PATH)
+load_dotenv(ENV_PATH, override=True)
 
 RAW_DATA_DIR = (
     BASE_DIR /
@@ -39,17 +39,21 @@ ARCHIVE_DIR.mkdir(
 # CDS API CONFIGURATION
 # ==========================================
 
-CDS_URL = os.getenv("CDS_URL")
+CDS_URL = os.getenv("CDS_API_URL")
 CDS_KEY = os.getenv("CDS_API_KEY")
 
-if not CDS_KEY:
-    raise ValueError("CDS_API_KEY is not set")
+# print("CDS_URL:", CDS_URL)
+# print("CDS_KEY:", CDS_KEY[:10] + "..." if CDS_KEY else None)
+
 
 # ==========================================
 # DATA CONFIGURATION
 # ==========================================
 
-YEAR = "2025"
+YEAR = [
+    "2025"
+    
+]
 
 AREA = [
     26.32,  # North
@@ -117,16 +121,24 @@ client = cdsapi.Client(
 
 def download_quarterly_data(
     month_name: str,
-    month: list[str]
+    month: list,
+    year: str
 ) -> None:
+    year_dir = ARCHIVE_DIR / year
 
-    output_file = (
-        ARCHIVE_DIR /
-        f"azamgarh_weather_{month_name}_{YEAR}.zip"
+    year_dir.mkdir(
+        parents=True,
+        exist_ok=True
     )
 
+    output_file = (
+        year_dir /
+        f"azamgarh_weather_{month_name}_{year}.zip"
+    )
+
+
     print("\n" + "=" * 50)
-    print(f"Downloading {month_name}")
+    print(f"Downloading {month_name}_{year}")
     print("=" * 50)
 
     request = {
@@ -135,7 +147,7 @@ def download_quarterly_data(
 
         "variable": VARIABLES,
 
-        "year": YEAR,
+        "year": year,
 
         "month": month,
 
@@ -154,7 +166,7 @@ def download_quarterly_data(
         str(output_file)
     )
 
-    print(f"\n{month_name} download completed.")
+    print(f"\n{month_name}_{year} download completed.")
     print(f"Saved to: {output_file}")
 
 
@@ -163,20 +175,22 @@ def download_quarterly_data(
 # ==========================================
 
 if __name__ == "__main__":
+    for year in YEAR:
+            
+        for month_name, month in MONTH_GROUPS.items():
 
-    for month_name, month in MONTH_GROUPS.items():
+            try:
 
-        try:
+                download_quarterly_data(
+                    month_name=month_name,
+                    month=month,
+                    year=year
+                )
 
-            download_quarterly_data(
-                month_name=month_name,
-                month=month
-            )
+            except Exception as error:
 
-        except Exception as error:
+                print(
+                    f"\nError downloading {month_name}_{year}"
+                )
 
-            print(
-                f"\nError downloading {month_name}"
-            )
-
-            print(error)
+                print(error)
