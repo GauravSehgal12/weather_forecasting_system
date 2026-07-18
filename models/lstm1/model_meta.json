@@ -1,0 +1,32 @@
+{
+  "model": "Encoder-Decoder BiLSTM",
+  "target": "temperature",
+  "features": [
+    "temperature",
+    "surface_pressure",
+    "total_cloud_cover",
+    "precipitation",
+    "humidity",
+    "wind_speed",
+    "month"
+  ],
+  "target_idx": 0,
+  "lookback": 24,
+  "forecast_n": 5,
+  "n_features": 7,
+  "train_samples": 6095,
+  "test_samples": 1307,
+  "metrics": {
+    "mae_celsius": 3.4343,
+    "rmse_celsius": 3.7831,
+    "r2_score": 0.3639
+  },
+  "per_step_mae": {
+    "+1h": 2.9065,
+    "+2h": 2.5589,
+    "+3h": 3.272,
+    "+4h": 3.9766,
+    "+5h": 4.4576
+  },
+  "scaler_path": "../models/scalers1/lstm_temp_scaler.pkl"
+}
