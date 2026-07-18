@@ -23,12 +23,12 @@ LSTM_MODEL_FILE   =  os.getenv("LSTM_MODEL_FILE",    "lstm_temp_model.keras")
 MODEL_LSTM    = os.path.join(os.getenv("MODEL_LSTM_DIR",    "models/lstm"),
                               os.getenv("LSTM_MODEL_FILE",    "lstm_temp_model.keras"))
 
-SCALER_DIR   = os.getenv("SCALER_DIR",    "models/scalers")
+SCALER_DIR   = os.getenv("SCALER_DIR",    "models/scalers1")
 
-SCALER_FILE   = os.getenv("SCALER_FILE",  "lstm_temp_scaler.pkl")
+SCALER_FILE   = os.getenv("SCALER_FILE",  "lstm_temp_scaler1.pkl")
 
-SCALER_PATH   = os.path.join(os.getenv("SCALER_DIR",        "models/scalers"),
-                              os.getenv("SCALER_FILE",        "lstm_temp_scaler.pkl"))
+SCALER_PATH   = os.path.join(os.getenv("SCALER_DIR",        "models/scalers1"),
+                              os.getenv("SCALER_FILE",        "lstm_temp_scaler1.pkl"))
 
 MODEL_XGBOOST_DIR = os.getenv("MODEL_XGBOOST_DIR", "models/xgboost")
 

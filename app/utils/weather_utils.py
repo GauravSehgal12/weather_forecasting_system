@@ -1,195 +1,148 @@
-"""
-ML Service Layer
-────────────────────────────────────────────────────────────
-Handles:
-1. Rain prediction using XGBoost
-2. Temperature forecasting using LSTM
-4. Weather feature engineering utilities
 
-Project: Weather Forecasting System
-"""
-
-# ──────────────────────────────────────────────────────────
-# Standard Library Imports
-# ──────────────────────────────────────────────────────────
-import json
-
-# ──────────────────────────────────────────────────────────
-# Third-Party Imports
-# ──────────────────────────────────────────────────────────
+import requests
+from fastapi import HTTPException
+from typing import Tuple
 import numpy as np
-import pandas as pd
+from app.config import GEOCODE_URL
+from typing import Union
+import numpy.typing as npt
 
-from xgboost import XGBClassifier
+WEATHER_MAP = {
+    0: ("Clear sky", "01d"),
+    1: ("Mainly clear", "02d"),
+    2: ("Partly cloudy", "03d"),
+    3: ("Overcast", "04d"),
+
+    45: ("Fog", "50d"),
+    48: ("Depositing rime fog", "50d"),
+
+    51: ("Light drizzle", "09d"),
+    53: ("Moderate drizzle", "09d"),
+    55: ("Dense drizzle", "09d"),
+
+    61: ("Slight rain", "10d"),
+    63: ("Moderate rain", "10d"),
+    65: ("Heavy rain", "10d"),
+
+    71: ("Slight snow", "13d"),
+    73: ("Moderate snow", "13d"),
+    75: ("Heavy snow", "13d"),
+
+    80: ("Rain showers", "09d"),
+
+    95: ("Thunderstorm", "11d"),
+}
 
 
-from app.services.model_loader import (
-    loaded_lstm_model,
-    loaded_lstm_scaler,
-    loaded_lstm_meta
-)
-from app.config import MODEL_XGBOOST, XGBOOST_META
-from app.utils.weather_utils import calculate_humidity
-
-
-with open(XGBOOST_META, "r") as file:
-    meta = json.load(file)
-    
-
-BEST_THRESHOLD = meta["best_threshold"]
-FEATURES = meta["features"]
-
-
-rain_model = XGBClassifier()
-rain_model.load_model(MODEL_XGBOOST)
-
-
-def predict_rain(
-    input_dict: dict,
-    threshold: float = BEST_THRESHOLD
-) -> dict:
+def validate_and_geocode(city: str) -> Tuple[float, float, str]:
     """
-    Predict whether it will rain tomorrow.
+    Validate a city name using the Open-Meteo Geocoding API.
 
     Args:
-        input_dict : Dictionary containing weather features
-        threshold  : Probability threshold for classification
+        city (str): Name of the city entered by the user.
 
     Returns:
-        Dictionary containing:
-            - rain_tomorrow
-            - probability
-            - confidence
-            - threshold_used
+        Tuple[float, float, str]:
+            - latitude
+            - longitude
+            - formatted display name
+
+    Raises:
+        HTTPException:
+            400 -> Empty city name
+            404 -> City not found
+            503 -> Geocoding service unavailable
     """
-
-  
-    row = pd.DataFrame([
-        {
-            feature: input_dict[feature]
-            for feature in FEATURES
-        }
-    ])
-
-    # Rain probability
-    probability = rain_model.predict_proba(row)[0][1]
-
-    # Binary prediction
-    will_rain = probability >= threshold
-
-    # Confidence level
-    if probability > 0.75:
-        confidence = "high (rain likely)"
-
-    elif probability > 0.55:
-        confidence = "medium"
-
-    elif probability < 0.25:
-        confidence = "high (no rain likely)"
-
-    else:
-        confidence = "low (uncertain)"
-
-    return {
-        "rain_tomorrow": bool(will_rain),
-        "probability": round(float(probability), 4),
-        "confidence": confidence,
-        "threshold_used": threshold,
-    }
-
-
-def predict_temperature(
-    recent_df: pd.DataFrame,
-    n_hours: int = 5
-) -> dict:
-    """
-    Predict future temperature using trained LSTM model.
-
-    Args:
-        recent_df : DataFrame containing recent weather data
-        n_hours   : Number of future hours to predict
-
-    Returns:
-        Dictionary containing:
-            - forecast
-            - model metadata
-            - MAE score
-    """
-
-
-    
-    meta = loaded_lstm_meta
-
-    model = loaded_lstm_model
-    scaler = loaded_lstm_scaler
-
-    lookback = meta["lookback"]
-    forecast_n = meta["forecast_n"]
-
-    feature_columns = meta["features"]
-
-    target_idx = meta["target_idx"]
-    n_features = meta["n_features"]
-
-    # ─────────────────────────────────────────────
-    # Validation
-    # ─────────────────────────────────────────────
-    n = n_hours if n_hours else forecast_n
-
-    assert n <= forecast_n, (
-        f"n_hours={n} exceeds trained "
-        f"forecast_n={forecast_n}"
-    )
-
-    assert len(recent_df) >= lookback, (
-        f"Need at least {lookback} rows, "
-        f"got {len(recent_df)}"
-    )
 
    
-    window = (
-        recent_df[feature_columns]
-        .iloc[-lookback:]
-        .values
-    )
+    city = city.strip()
 
-    window_scaled = scaler.transform(window)
+    if not city:
+        raise HTTPException(
+            status_code=400,
+            detail="City name cannot be empty."
+        )
 
-    window_scaled = window_scaled.reshape(
-        1,
-        lookback,
-        n_features
-    )
+    
+    try:
+        response = requests.get(
+            GEOCODE_URL,
+            params={
+                "name": city,
+                "count": 1,
+                "language": "en",
+                "format": "json",
+            },
+            timeout=5,
+        )
+
+        response.raise_for_status()
+        data = response.json()
+
+    except requests.Timeout:
+        raise HTTPException(
+            status_code=504,
+            detail="Geocoding service timed out. Please try again."
+        )
+
+    except requests.RequestException:
+        raise HTTPException(
+            status_code=503,
+            detail="Geocoding service unavailable. Please try again later."
+        )
+
+    results = data.get("results")
+
+    if not results:
+        raise HTTPException(
+            status_code=404,
+            detail=f"City '{city}' not found. Please check the spelling and try again."
+        )
+
+   
+    top_result = results[0]
+
+    latitude = top_result["latitude"]
+    longitude = top_result["longitude"]
+
+    city_name = top_result.get("name", city)
+    state     = top_result.get("admin1")
+    country   = top_result.get("country")
 
  
-    prediction_scaled = (
-        model.predict(
-            window_scaled,
-            verbose=0
-        )[0][:n]
+    location_parts = [city_name]
+
+    if state:
+        location_parts.append(state)
+
+    if country:
+        location_parts.append(country)
+
+    display_name = ", ".join(location_parts)
+
+    return latitude, longitude, display_name
+
+
+def calculate_humidity(
+    temp: Union[float, npt.NDArray[np.float64]],
+    dewpoint: Union[float, npt.NDArray[np.float64]],
+) -> Union[float, npt.NDArray[np.float64]]:
+    """
+    Calculate relative humidity (%) from temperature and dewpoint.
+
+    Supports:
+    - float
+    - NumPy arrays
+    """
+
+    humidity = 100.0 * (
+        np.exp((17.625 * dewpoint) / (243.04 + dewpoint))
+        / np.exp((17.625 * temp) / (243.04 + temp))
     )
 
-  
-    dummy = np.zeros((n, n_features))
+    # Scalar
+    if isinstance(humidity, (float, np.floating)):
+        return round(float(humidity), 2)
 
-    dummy[:, target_idx] = prediction_scaled
-
-    prediction_temp = (
-        scaler.inverse_transform(dummy)
-        [:, target_idx]
-    )
-
-    # ─────────────────────────────────────────────
-    # Build forecast response
-    # ─────────────────────────────────────────────
-    forecast = [
-        {
-            "hour": f"+{i + 1}h",
-            "temperature_C": round(float(temp), 2)
-        }
-        for i, temp in enumerate(prediction_temp)
-    ]
-
-    return {
-        "forecast": forecast,
-    }
+    # Array
+    return np.round(humidity, 2)

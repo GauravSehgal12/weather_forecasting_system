@@ -16,30 +16,30 @@
     "month"
   ],
   "target": "rain_tomorrow",
-  "best_threshold": 0.7,
-  "train_rows": 35040,
-  "test_rows": 8760,
+  "best_threshold": 0.15,
+  "train_rows": 6988,
+  "test_rows": 1748,
   "metrics": {
-    "accuracy": 0.9075,
-    "f1_score": 0.8554,
-    "roc_auc": 0.9646,
-    "avg_precision": 0.9295
+    "accuracy": 0.8673,
+    "f1_score": 0.4934,
+    "roc_auc": 0.8801,
+    "avg_precision": 0.4563
   },
-  "cv_mean_roc_auc": 0.9141,
-  "cv_std_roc_auc": 0.0554,
+  "cv_mean_roc_auc": 0.7223,
+  "cv_std_roc_auc": 0.1327,
   "feature_importance_gain": {
-    "precipitation": 423.5391,
-    "high_cloud_cover": 232.9282,
-    "medium_cloud_cover": 154.5696,
-    "low_cloud_cover": 68.3451,
-    "total_cloud_cover": 45.8899,
-    "humidity": 32.1532,
-    "surface_pressure": 24.588,
-    "month": 19.7748,
-    "wind_speed": 14.1438,
-    "temp_lag_1": 13.9865,
-    "temp_rolling_6": 11.9742,
-    "temperature": 11.752,
-    "temp_lag_24": 10.9871
+    "precipitation": 109.3359,
+    "low_cloud_cover": 34.6001,
+    "month": 26.7347,
+    "high_cloud_cover": 17.9816,
+    "surface_pressure": 9.5987,
+    "total_cloud_cover": 8.2453,
+    "temperature": 6.6644,
+    "medium_cloud_cover": 5.9543,
+    "temp_lag_24": 5.6552,
+    "temp_lag_1": 5.5018,
+    "temp_rolling_6": 5.3639,
+    "humidity": 5.2243,
+    "wind_speed": 4.2639
   }
 }

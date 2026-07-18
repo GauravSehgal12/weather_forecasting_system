@@ -14,8 +14,8 @@ from app.services.predictor import(
     predict_rain,
     predict_temperature
 )
-from app.services.weather_service import fetch_current_weather
-from app.services.forecast_service import get_forecast
+from app.services.weather_services import fetch_current_weather
+from app.services.forecast_services import get_forecast
 from app.utils.weather_utils import validate_and_geocode
 
 router = APIRouter()
