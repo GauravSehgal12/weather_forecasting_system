@@ -42,45 +42,47 @@ let XGB_IMPORTANCE = {};
 let XGB_MAX = 0;
 
 async function initMae() {
-    const response = await fetch("/model-meta");
-    const meta = await response.json();
+    try {
+        const response = await fetch("/model-meta");
+        if (!response.ok) throw new Error("Failed to load model metadata");
+        const meta = await response.json();
 
-    // Per-step MAE
-    PER_STEP_MAE = Object.fromEntries(
-        Object.entries(meta.lstm.per_step_metrics)
-            .map(([step, metrics]) => [step, metrics.mae])
-    );
+        // Per-step MAE
+        PER_STEP_MAE = meta.lstm.per_step_mae || {};
 
-    // lstm model metadata
-    LSTM_META = {
-        lookback: meta.lstm.lookback,
-        forecast_n: meta.lstm.forecast_n,
-        train_samples: meta.lstm.train_samples,
-        n_features: meta.lstm.n_features,
+        // lstm model metadata
+        LSTM_META = {
+            lookback: meta.lstm.lookback,
+            forecast_n: meta.lstm.forecast_n,
+            train_samples: meta.lstm.train_samples,
+            n_features: meta.lstm.n_features,
 
-        mae_celsius: meta.lstm.metrics.mae_celsius,
-        rmse_celsius: meta.lstm.metrics.rmse_celsius,
-        r2_score: meta.lstm.metrics.r2_score
-    };
+            mae_celsius: meta.lstm.metrics.mae_celsius,
+            rmse_celsius: meta.lstm.metrics.rmse_celsius,
+            r2_score: meta.lstm.metrics.r2_score
+        };
 
-    // xgboost model metadata
-    XGB_META = {
-      accuracy: meta.xgboost.metrics_at_best_threshold.accuracy,
-      auc: meta.xgboost.roc_auc,
-      feature_importance: meta.xgboost.feature_importance_gain
-    };
+        // xgboost model metadata
+        XGB_META = {
+          accuracy: meta.xgboost.metrics.accuracy,
+          auc: meta.xgboost.metrics.roc_auc,
+          feature_importance: meta.xgboost.feature_importance_gain
+        };
 
-    XGB_IMPORTANCE = XGB_META.feature_importance;
-    XGB_MAX = Math.max(...Object.values(XGB_IMPORTANCE));
+        XGB_IMPORTANCE = XGB_META.feature_importance || {};
+        XGB_MAX = Math.max(...Object.values(XGB_IMPORTANCE), 1);
 
-    document.getElementById('lstm-mae').innerHTML=`
-              <span class="pill-dot dot-lstm"></span>
-          BiLSTM · MAE ±${LSTM_META.mae_celsius}°C
-    `
-    document.getElementById('xgboost-auc').innerHTML=`
-          <span class="pill-dot dot-xgb"></span>
-          XGBoost · AUC ${XGB_META.auc}
-    `
+        document.getElementById('lstm-mae').innerHTML=`
+                  <span class="pill-dot dot-lstm"></span>
+              BiLSTM · MAE ±${LSTM_META.mae_celsius}°C
+        `
+        document.getElementById('xgboost-auc').innerHTML=`
+              <span class="pill-dot dot-xgb"></span>
+              XGBoost · AUC ${XGB_META.auc}
+        `
+    } catch (e) {
+        console.error("Error initializing model metadata: ", e);
+    }
 }
 initMae();
 
@@ -140,6 +142,7 @@ async function fetchWeather() {
   if (!city) return;
   setState('loading');
 
+  let data;
   try {
     const res = await fetch(`/weather/${encodeURIComponent(city)}`);
     if (!res.ok) {
@@ -148,11 +151,20 @@ async function fetchWeather() {
       setState('error');
       return;
     }
-    const data = await res.json();
+    data = await res.json();
+  } catch (e) {
+    console.error("Network error fetching weather: ", e);
+    document.getElementById('errorMsg').textContent = 'Failed to connect. Is the server running?';
+    setState('error');
+    return;
+  }
+
+  try {
     renderDashboard(data);
     setState('dashboard');
   } catch (e) {
-    document.getElementById('errorMsg').textContent = 'Failed to connect. Is the server running?';
+    console.error("Rendering error: ", e);
+    document.getElementById('errorMsg').textContent = 'An error occurred while rendering the dashboard. Check browser console.';
     setState('error');
   }
 }
